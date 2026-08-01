@@ -6,6 +6,10 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+import sys
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
 
 from safeprefix.boundary_v1.data import prepare_boundary_dataset
 from safeprefix.boundary_v1.evaluation import finalize_selected_model, select_architecture

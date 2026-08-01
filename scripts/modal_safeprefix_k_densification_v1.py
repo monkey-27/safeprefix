@@ -14,7 +14,7 @@ import modal
 
 
 LOCAL_ROOT = Path(__file__).resolve().parents[1]
-REMOTE_ROOT = Path("/workspace/aaai_monkey")
+REMOTE_ROOT = Path("/workspace/safeprefix_code")
 APP_NAME = "safeprefix-k-densification-v1"
 OUTPUT_VOLUME_NAME = os.environ.get(
     "SAFEPREFIX_K_DENSIFICATION_OUTPUT_VOLUME", "safeprefix-k-densification-v1"

@@ -16,12 +16,33 @@ Add Modal support only when launching cloud jobs:
 python3 -m pip install -e ".[dev,cloud]"
 ```
 
+## Workflow Contract
+
+| Stage | Entry point | External inputs | Ignored outputs |
+| --- | --- | --- | --- |
+| Dataset audit | `scripts/00_audit_datasets.py` | Hugging Face datasets or local CRV files | `artifacts/dataset_audit/audit/` |
+| Teacher-forced rollouts | `scripts/25_run_full_teacher_forced_rollouts.py` | Frozen manifests from an external run volume | `artifacts/full_teacher_forced_suite/` |
+| Teacher-forced completion | `scripts/26_*`, `scripts/27_*`, `scripts/28_*` | Frozen manifests and completed rollout root | `artifacts/count_reconciliation/`, `artifacts/teacher_forced_completion*/` |
+| Boundary model | `scripts/run_boundary_model_v1.py` | Original/completed rollout roots and manifest root | `artifacts/boundary_model_v1/` |
+| Prefix validity | `scripts/run_safeprefix_prefix_validity_v1.py` | Boundary and completion roots configured in YAML | `outputs/prefix_validity_v1/` |
+| Threshold selection | `scripts/run_safeprefix_threshold_selection_tf_v1.py` | Boundary, completion, and old-rollout roots | `artifacts/safeprefix_threshold_selection_tf_v1/` |
+| Native traces | `scripts/33_*`, `scripts/35_*`, `scripts/37_*`, `scripts/38_*` | Frozen manifests and Modal workspace outputs | `artifacts/native_*` |
+| Geometry/funnel | `scripts/run_recoverability_geometry_tf.py`, `scripts/modal_safeprefix_repairability_funnel.py` | Boundary and teacher-forced geometry roots | `artifacts/recoverability_geometry_tf_v1/`, `artifacts/repairability_funnel_v1/` |
+| K-densification | `scripts/run_k_densification_v1.py` | Threshold, boundary, completion, and original roots | `outputs/k_densification_v1/` |
+
+Fresh checkouts can run help, config validation, and tests immediately. Full
+experiment stages require the external inputs listed above; those inputs must
+remain outside Git.
+
 ## Data and Manifest Preparation
 
 ```bash
-python3 scripts/00_audit_datasets.py --config configs/datasets.yaml
+python3 scripts/00_audit_datasets.py --config configs/dataset_audit.yaml
 
 python3 scripts/25_run_full_teacher_forced_rollouts.py --help
+python3 scripts/25_run_full_teacher_forced_rollouts.py prepare \
+  --config configs/full_teacher_forced_suite.yaml \
+  --run-id <run-id>
 python3 scripts/26_reconcile_safeprefix_counts.py --help
 python3 scripts/27_complete_teacher_forced_corpora.py --help
 python3 scripts/28_freeze_teacher_forced_completion_manifest.py --help
@@ -39,7 +60,7 @@ Local orchestration:
 
 ```bash
 python3 scripts/25_run_full_teacher_forced_rollouts.py \
-  --config configs/full_teacher_forced_suite.yaml --help
+  --help
 ```
 
 Teacher-forced completion expects two generated prerequisite directories under
@@ -60,11 +81,13 @@ Modal launchers:
 ```bash
 MODAL_PROFILE=<profile> python3 -m modal run --detach \
   scripts/modal_safeprefix_full_teacher_forced.py \
-  --run-name safeprefix_full_teacher_forced_<date>_r1
+  --action submit \
+  --run-id safeprefix_full_teacher_forced_<date>_r1
 
 MODAL_PROFILE=<profile> python3 -m modal run --detach \
   scripts/modal_safeprefix_teacher_forced_completion.py \
-  --run-name safeprefix_teacher_forced_completion_<date>_r1
+  --action submit \
+  --run-id safeprefix_teacher_forced_completion_<date>_r1
 ```
 
 ## Boundary Model V1
@@ -102,7 +125,8 @@ Cloud runner:
 ```bash
 MODAL_PROFILE=<profile> python3 -m modal run --detach \
   scripts/modal_safeprefix_boundary_model_v1.py \
-  --run-name safeprefix_boundary_model_v1_<date>_r1
+  --action launch \
+  --run-id safeprefix_boundary_model_v1_<date>_r1
 ```
 
 ## Prefix Validity
@@ -113,7 +137,7 @@ python3 scripts/run_safeprefix_prefix_validity_v1.py \
 
 MODAL_PROFILE=<profile> python3 -m modal run --detach \
   scripts/modal_safeprefix_prefix_validity_v1.py \
-  --run-name safeprefix_prefix_validity_v1_<date>_r1
+  --run-id safeprefix_prefix_validity_v1_<date>_r1
 ```
 
 ## Threshold Selection and Native Traces
@@ -123,11 +147,14 @@ python3 scripts/run_safeprefix_threshold_selection_tf_v1.py --help
 
 MODAL_PROFILE=<profile> python3 -m modal run --detach \
   scripts/modal_safeprefix_threshold_selection_tf_v1.py \
-  --run-name safeprefix_threshold_selection_tf_v1_<date>_r1
+  --action submit-shard \
+  --run-id safeprefix_threshold_selection_tf_v1_<date>_r1 \
+  --shard-id shard-00
 
 MODAL_PROFILE=<profile> python3 -m modal run --detach \
   scripts/modal_safeprefix_native_failed_trace_acquisition.py \
-  --run-name safeprefix_native_failed_trace_acquisition_<date>_r1
+  --run-id safeprefix_native_failed_trace_acquisition_<date>_r1 \
+  --model-key family_a_small
 
 python3 scripts/37_merge_native_failed_trace_workspaces.py --help
 python3 scripts/38_validate_native_failed_trace_prelaunch.py --help
@@ -142,7 +169,8 @@ python3 scripts/run_recoverability_geometry_tf.py phase4
 
 MODAL_PROFILE=<profile> python3 -m modal run --detach \
   scripts/modal_safeprefix_repairability_funnel.py \
-  --run-name safeprefix_repairability_funnel_<date>_r1
+  --phase complete \
+  --run-id safeprefix_repairability_funnel_<date>_r1
 ```
 
 ## K-Densification
@@ -152,5 +180,6 @@ python3 scripts/run_k_densification_v1.py --help
 
 MODAL_PROFILE=<profile> python3 -m modal run --detach \
   scripts/modal_safeprefix_k_densification_v1.py \
-  --run-name safeprefix_k_densification_v1_<date>_r1
+  --action launch \
+  --run-id safeprefix_k_densification_v1_<date>_r1
 ```

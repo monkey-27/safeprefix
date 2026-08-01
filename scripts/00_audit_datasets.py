@@ -23,9 +23,7 @@ from safeprefix.data.dedup import latex_whitespace_hash  # noqa: E402
 from safeprefix.data.processbench import normalize_rows as normalize_processbench  # noqa: E402
 from safeprefix.data.splits import assign_problem_splits, assert_problem_disjoint, problem_group_key  # noqa: E402
 from safeprefix.manifests import NormalizedTrace, encode_reference_answer  # noqa: E402
-from safeprefix.models.loader import load_model  # noqa: E402
 from safeprefix.reproducibility import atomic_json, atomic_jsonl, atomic_parquet, atomic_text, provenance, refuse_overwrite, stage_manifest  # noqa: E402
-from safeprefix.testing import CharacterTokenizer, mock_traces  # noqa: E402
 
 app = typer.Typer(add_completion=False)
 
@@ -47,6 +45,8 @@ def _evaluation_hashes(config: dict[str, Any], exclusions: list[dict[str, Any]])
 
 def _load_rows(config: dict[str, Any], mock: bool) -> tuple[list[NormalizedTrace], list[dict[str, Any]], dict[str, str | None]]:
     if mock:
+        from safeprefix.testing import mock_traces
+
         return [NormalizedTrace(**row) for row in mock_traces()], [], {"mock/safeprefix": "mock-v1"}
     accepted: list[NormalizedTrace] = []
     excluded: list[dict[str, Any]] = []
@@ -112,6 +112,8 @@ def _token_lengths(
                 positions[name][trace_id] = position
                 fractions[name][trace_id] = position / max(total, 1)
     if mock:
+        from safeprefix.testing import CharacterTokenizer
+
         tokenizer = CharacterTokenizer()
         measure("mock_character", tokenizer)
         revisions["mock_character"] = "mock-v1"
@@ -128,7 +130,7 @@ def _token_lengths(
 
 @app.command()
 def main(
-    config: Path = typer.Option(ROOT / "configs" / "prompt_pilot.yaml"),
+    config: Path = typer.Option(ROOT / "configs" / "dataset_audit.yaml"),
     override: list[str] = typer.Option([], "--set"),
     mock: bool = typer.Option(False),
     resume: bool = typer.Option(True),

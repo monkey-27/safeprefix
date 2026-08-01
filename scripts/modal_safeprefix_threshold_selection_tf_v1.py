@@ -20,7 +20,7 @@ import modal
 
 
 LOCAL_ROOT = Path(__file__).resolve().parents[1]
-REMOTE_ROOT = Path("/workspace/aaai_monkey")
+REMOTE_ROOT = Path("/workspace/safeprefix_code")
 APP_NAME = "safeprefix-threshold-selection-tf-v1"
 OUTPUT_VOLUME_NAME = os.environ.get(
     "SAFEPREFIX_THRESHOLD_OUTPUT_VOLUME", "safeprefix-threshold-selection-tf-v1"

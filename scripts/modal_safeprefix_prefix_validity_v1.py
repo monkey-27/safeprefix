@@ -18,7 +18,7 @@ import modal
 
 LOCAL_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(LOCAL_ROOT / "src"))
-REMOTE_ROOT = Path("/workspace/aaai_monkey")
+REMOTE_ROOT = Path("/workspace/safeprefix_code")
 CONFIG_RELATIVE = Path("configs/prefix_validity_v1.yaml")
 APP_NAME = "safeprefix-prefix-validity-v1"
 

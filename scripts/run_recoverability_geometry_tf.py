@@ -4,8 +4,12 @@
 from __future__ import annotations
 
 from pathlib import Path
+import sys
 
 import typer
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
 
 from safeprefix.config import dump_resolved, load_config
 from safeprefix.recoverability_geometry_protocol import prepare_geometry_manifests

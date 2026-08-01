@@ -15,14 +15,16 @@ import modal
 
 LOCAL_ROOT = Path(__file__).resolve().parents[1]
 MANIFEST_ENV = "SAFEPREFIX_GEOMETRY_INPUT_MANIFEST"
-manifest_local = Path(os.environ.get(MANIFEST_ENV, ""))
 embedded_manifest = Path("/workspace/input_manifest.json")
-if not manifest_local.is_file() and embedded_manifest.is_file():
-    # Modal imports this module again inside the container.  The host path is
-    # intentionally unavailable there; use the immutable image copy instead.
-    manifest_local = embedded_manifest
-if not manifest_local.is_file():
-    raise RuntimeError(f"{MANIFEST_ENV} must name the local publication manifest")
+
+
+def _manifest_path() -> Path | None:
+    configured = os.environ.get(MANIFEST_ENV)
+    if configured and Path(configured).is_file():
+        return Path(configured)
+    if embedded_manifest.is_file():
+        return embedded_manifest
+    return None
 
 COMPLETION_VOLUME = "safeprefix-recoverability-geometry-input-completion-v2"
 BOUNDARY_VOLUME = "safeprefix-recoverability-geometry-input-boundary-v2"
@@ -46,7 +48,8 @@ geometry_volume = modal.Volume.from_name(
 )
 
 image = modal.Image.debian_slim(python_version="3.11")
-if manifest_local != embedded_manifest:
+manifest_local = _manifest_path()
+if manifest_local is not None and manifest_local != embedded_manifest:
     image = image.add_local_file(
         manifest_local, str(embedded_manifest), copy=True
     )
@@ -153,6 +156,8 @@ def verify(profile: str) -> dict[str, Any]:
 
 @app.local_entrypoint()
 def main(profile: str) -> None:
+    if _manifest_path() is None:
+        raise RuntimeError(f"{MANIFEST_ENV} must name the local publication manifest")
     if profile not in AUTHORIZED_PROFILES:
         raise RuntimeError(f"profile is not authorized: {profile}")
     active = os.environ.get("MODAL_PROFILE")

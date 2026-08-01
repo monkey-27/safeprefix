@@ -28,7 +28,7 @@ import yaml
 
 
 LOCAL_ROOT = Path(__file__).resolve().parents[1]
-REMOTE_ROOT = Path("/workspace/aaai_monkey")
+REMOTE_ROOT = Path("/workspace/safeprefix_code")
 APP_NAME = "safeprefix-full-teacher-forced-rollouts"
 RUN_VOLUME_NAME = "safeprefix-full-teacher-forced-runs-v2"
 CACHE_VOLUME_NAME = "safeprefix-hf-cache"

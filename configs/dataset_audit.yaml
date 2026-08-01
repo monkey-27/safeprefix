@@ -1,0 +1,18 @@
+include: [models.yaml, datasets.yaml]
+
+experiment:
+  id: safeprefix_dataset_audit
+artifacts_root: artifacts/dataset_audit
+seed: 2701
+selected_models: [family_a_small, family_a_large, family_b_small, family_b_large]
+
+split_fractions:
+  prompt_pilot: 0.06
+  train: 0.50
+  dev: 0.10
+  dense_audit: 0.10
+  post_error_audit: 0.10
+  native_eval: 0.14
+
+fuzzy_similarity_threshold: 0.92
+evaluation_pool_manifests: []

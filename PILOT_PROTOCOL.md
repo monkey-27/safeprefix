@@ -41,9 +41,8 @@ eager remains unsupported. For a new deployment signature, the only blocking
 pre-run check is the 10-checkpoint matched-shape live/restored test; the pinned
 Qwen2.5-3B signature is exempt because it already passed.
 
-This rule is formally recorded in
-`docs/SAFEPREFIX_SCALABLE_EXECUTION_AMENDMENT_20260725.md` and supersedes the
-earlier broad V3 rerun requirement for the scalable pilot only.
+This rule is recorded here and supersedes the earlier broad V3 rerun
+requirement for the scalable pilot only.
 
 Stage A uses 100 failed traces per model and times only the actual label path:
 teacher-forced prefill, four suffixes per eligible checkpoint, and verification.

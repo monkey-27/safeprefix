@@ -12,7 +12,7 @@ import modal
 
 
 LOCAL_ROOT = Path(__file__).resolve().parents[1]
-REMOTE_ROOT = Path("/workspace/aaai_monkey")
+REMOTE_ROOT = Path("/workspace/safeprefix_code")
 RUNS_ROOT = Path("/runs")
 CONFIG_RELATIVE = Path("configs/native_hidden_state_cache.yaml")
 RUN_VOLUME_NAME = os.environ.get(

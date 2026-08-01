@@ -16,7 +16,11 @@ workspace remains untouched.
 | `src/safeprefix/` | Python package for data prep, cache restoration, teacher-forced rollouts, boundary models, prefix validity, native trace acquisition, geometry, and K-densification. |
 | `scripts/` | Maintained command-line and Modal entry points. |
 | `configs/` | Frozen YAML configs for production and analysis workflows. |
+| `docs/NAVIGATION.md` | Package and script map for reading or extending the code. |
 | `docs/WORKFLOWS.md` | Command map for data generation, training, evaluation, and cloud runs. |
+| `docs/ARTIFACT_POLICY.md` | Policy and audit commands for keeping generated material out of Git. |
+| `docs/TESTING.md` | Test tiers and coverage map. |
+| `docs/MODAL.md` | Cloud launcher conventions and required Modal resources. |
 | `tests/` | Focused tests for the maintained code path. |
 
 Generated files belong in ignored runtime directories such as `artifacts/`,
@@ -39,13 +43,24 @@ python3 -m pip install -e ".[dev,cloud]"
 ## Quick Checks
 
 ```bash
+make help
 make test-fast
+safeprefix doctor
 safeprefix commands
 ```
 
+## Start Here
+
+1. Read [docs/NAVIGATION.md](docs/NAVIGATION.md) for the package and script map.
+2. Run `make test-fast` for a quick local sanity check.
+3. Run `python3 -m pytest` before changing shared pipeline code.
+4. Use [docs/WORKFLOWS.md](docs/WORKFLOWS.md) for artifact-dependent stages.
+5. Run `make audit-code-only` before pushing.
+
 ## Main Workflows
 
-See [docs/WORKFLOWS.md](docs/WORKFLOWS.md) for the full command map.
+See [docs/NAVIGATION.md](docs/NAVIGATION.md) for the code map and
+[docs/WORKFLOWS.md](docs/WORKFLOWS.md) for the full command map.
 
 ```bash
 # Validate the prefix-validity config.

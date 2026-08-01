@@ -17,7 +17,7 @@ import modal
 
 
 LOCAL_ROOT = Path(__file__).resolve().parents[1]
-REMOTE_ROOT = Path("/workspace/aaai_monkey")
+REMOTE_ROOT = Path("/workspace/safeprefix_code")
 GEOMETRY_ROOT = Path("/geometry")
 BOUNDARY_ROOT = Path("/boundary")
 SOURCE_RUN_ID = "safeprefix_recoverability_geometry_tf_v1_20260728_r1"

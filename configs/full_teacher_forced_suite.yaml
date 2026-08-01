@@ -294,6 +294,12 @@ final_test_guard:
 # The audit configuration requires a complete problem-level partition. The
 # immutable production manifest freezes the source/error-stratified assignment
 # before any rollout record is generated.
-split_fractions: {train: 0.85, dev: 0.15}
+split_fractions:
+  prompt_pilot: 0.0
+  train: 0.85
+  dev: 0.15
+  dense_audit: 0.0
+  post_error_audit: 0.0
+  native_eval: 0.0
 fuzzy_similarity_threshold: 0.92
 evaluation_pool_manifests: []
