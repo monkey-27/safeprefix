@@ -1,0 +1,19 @@
+datasets:
+  processbench:
+    hf_dataset_id: Qwen/ProcessBench
+    revision: 3bdcd53
+    subsets: [gsm8k, math, olympiadbench, omnimath]
+    index_base: zero
+  crv:
+    hf_dataset_id: facebook/crv
+    revision: fc617c1
+    download_if_missing: true
+    local_root: data/crv
+    local_globs:
+      - data/crv/arithmetic_expressions/*.annotated.json
+      - data/crv/boolean_expressions/*.annotated.json
+      - data/crv/gsm8k_expressions/*.annotated.json
+    annotated_only: true
+split_fractions: {prompt_pilot: 0.06, train: 0.50, dev: 0.10, dense_audit: 0.10, post_error_audit: 0.10, native_eval: 0.14}
+fuzzy_similarity_threshold: 0.92
+evaluation_pool_manifests: []

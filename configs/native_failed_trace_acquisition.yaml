@@ -1,0 +1,173 @@
+include: [models.yaml]
+
+experiment:
+  id: safeprefix_native_failed_trace_acquisition_v1
+artifacts_root: artifacts/native_failed_trace_acquisition
+seed: 2701
+selected_models: [family_a_small, family_a_large, family_b_small, family_b_large]
+
+# Preserve the exact native-smoke tokenizer/chat rendering and context settings.
+# These overrides are deliberately duplicated here so the replacement protocol
+# cannot fall back silently to the shorter generic model defaults.
+models:
+  family_a_small:
+    max_context_length: 32768
+  family_a_large:
+    max_context_length: 32768
+  family_b_small:
+    max_context_length: 131072
+    chat_template_kwargs: {date_string: "26 Jul 2026"}
+  family_b_large:
+    max_context_length: 131072
+    chat_template_kwargs: {date_string: "26 Jul 2024"}
+
+# These are the exact public repositories and revisions used to build the
+# immutable source census.  The production image consumes the frozen census;
+# it never resolves a moving dataset revision at inference time.
+sources:
+  gsm1k:
+    hf_dataset_id: ScaleAI/gsm1k
+    revision: bc09569d09a614b9b530edc7f076fb214ac10493
+    config: default
+    split: test
+    question_field: question
+    answer_field: answer
+    stratum: gsm1k
+  math:
+    hf_dataset_id: EleutherAI/hendrycks_math
+    revision: 21a5633873b6a120296cce3e2df9d5550074f4a3
+    configs:
+      - algebra
+      - counting_and_probability
+      - geometry
+      - intermediate_algebra
+      - number_theory
+      - prealgebra
+      - precalculus
+    split: test
+    problem_field: problem
+    solution_field: solution
+    level_field: level
+    retained_levels: [3, 4]
+
+source_census:
+  source_order_seed: 2701
+  near_duplicate_threshold: 0.97
+  image_dependency_patterns:
+    - '\\includegraphics'
+    - '\\begin{asy}'
+    - '\\[asy\\]'
+  # This authoritative enriched table contains every ProcessBench/CRV problem
+  # loaded by the project.  The role manifests below preserve explicit role
+  # provenance and cover prior pilot/smoke reservations.
+  protected_sources:
+    - {role: all_processbench_and_crv, path: /private/tmp/safeprefix_frozen_manifests/enriched_examples.parquet, format: parquet}
+    - {role: teacher_forced_train, path: /private/tmp/safeprefix_frozen_manifests/teacher_forced_train.jsonl, format: jsonl}
+    - {role: teacher_forced_dev, path: /private/tmp/safeprefix_frozen_manifests/teacher_forced_dev.jsonl, format: jsonl}
+    - {role: prompt_pilot, path: /private/tmp/safeprefix_frozen_manifests/prompt_segmentation.jsonl, format: jsonl}
+    - {role: obsolete_native_development, path: /private/tmp/safeprefix_frozen_manifests/native_configuration_development.jsonl, format: jsonl}
+    - {role: obsolete_final_test_reservation, path: /private/tmp/safeprefix_frozen_manifests/final_test_reservations.jsonl, format: jsonl}
+  previous_native_smoke_attempts:
+    - artifacts/native_data_compilation/modal_smoke/pranav/family_a_small_attempts.jsonl
+    - artifacts/native_data_compilation/modal_smoke/pranav/family_b_small_attempts.jsonl
+    - artifacts/native_data_compilation/modal_smoke/nannuri/family_a_large_attempts.jsonl
+    - artifacts/native_data_compilation/modal_smoke/nannuri/family_b_large_attempts.jsonl
+
+acquisition:
+  schema_version: 1
+  target_failures_per_model: 600
+  target_by_stratum: {gsm1k: 100, math_level_3: 200, math_level_4: 300}
+  fallback_order: [gsm1k, math_level_3, math_level_4]
+  deficit_transfer: {gsm1k: math_level_3, math_level_3: math_level_4}
+  source_manifest: artifacts/native_failed_trace_acquisition/prelaunch/eligible_source_manifest.jsonl
+  source_manifest_metadata: artifacts/native_failed_trace_acquisition/prelaunch/source_manifest_metadata.json
+  attempt_pack_size: 8
+  regeneration_trace_pack_size: 6
+  workers_per_workspace: 10
+  bounded_wave_overrun_is_attempted_and_audited: true
+  full_inference_authorized: false
+  semantic_segmentation_enabled: false
+  checkpoint_extraction_enabled: false
+  hidden_state_extraction_enabled: false
+  kv_cache_persistence_enabled: false
+  boundary_model_enabled: false
+
+# The prompt and sampling distribution are inherited from the successful
+# production-shaped native smoke.  The user-required correction is that the
+# initial response and all four regenerations now share the same 4096-token
+# allowance; every other generation field is unchanged.
+prompting:
+  condition: P0
+  answer_format: boxed
+  selection_status: frozen_for_failure_acquisition_by_protocol
+generation:
+  shared:
+    temperature: 0.7
+    top_p: 0.95
+    top_k: 0
+    max_new_tokens: 4096
+    preallocate_kv_cache: true
+  rollout_indices: [0, 1, 2, 3]
+  seed_derivation: stable_identity_bound_v1
+
+parser:
+  name: deterministic_boxed_fallbacks
+  version: safeprefix_answer_parser_v2
+verifier:
+  name: exact_answer
+  version: safeprefix_exact_answer_v1
+  absolute_tolerance: 1.0e-6
+  relative_tolerance: 1.0e-6
+
+production_execution:
+  dtype: bf16
+  attention_backend: sdpa
+  require_resolved_attention_backend: sdpa
+  generation_engine: heterogeneous_checkpoint_compaction_refill_v1
+  policy_provenance:
+    prompt_chat_template: historical_native_production_shaped_smoke
+    sampling_law: historical_native_production_shaped_smoke
+    scheduler_backend: newer_frozen_teacher_forced_production_engine
+    scheduler_note: batch_shape_may_change_bf16_realization_but_is_identical_for_initial_and_all_regenerations
+  deterministic_branch_rng: true
+  torch_compile: false
+  compaction_quantum: 64
+  branch_batch_sizes:
+    family_a_small: 64
+    family_a_large: 32
+    family_b_small: 24
+    family_b_large: 16
+  maximum_decode_kv_bytes:
+    family_a_small: 15032385536
+    family_a_large: 13958643712
+    family_b_small: 12884901888
+    family_b_large: 12884901888
+
+# One model per workspace keeps cohort ordering and artifacts local, avoids
+# cross-workspace quota races, and uses all ten available H100 slots.  The
+# mapping follows the already-populated model caches from recent runs.
+workspace_plan:
+  meskmmy: {profile: meskmmy, model_key: family_a_small, gpu_workers: 10}
+  nannurikavitha1: {profile: workspace_reauth_2, model_key: family_a_large, gpu_workers: 10}
+  pranav-gupta-4-1-07: {profile: workspace_reauth, model_key: family_b_small, gpu_workers: 10}
+  marketingdeals666: {profile: scopedupdate_5, model_key: family_b_large, gpu_workers: 10}
+  scheduling: synchronous_ordered_pack_waves_then_regeneration_packs
+  rebalance_policy: preserve_primary_model_ownership_during_acquisition
+
+smoke:
+  attempts_per_model: 2
+  require_parser_and_verifier: true
+  require_atomic_resume: true
+
+statistics:
+  bootstrap_replicates: 10000
+  confidence_level: 0.95
+
+launch_gate:
+  explicit_modal_approval_required: true
+  modal_submission_performed: false
+  obsolete_plan_deactivated_and_retained_as_history:
+    native_development_pool_900: true
+    native_failures_120_per_model: true
+    sealed_native_set_800: true
+    semantic_segmentation_launch_gate: true

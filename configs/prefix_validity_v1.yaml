@@ -1,0 +1,80 @@
+include: [models.yaml]
+
+artifacts_root: outputs/prefix_validity_v1
+output_root: outputs/prefix_validity_v1
+seed: 20260729
+
+experiment:
+  id: prefix_validity_v1
+  schema_version: 1
+  output_root: outputs/prefix_validity_v1
+  seed: 20260729
+
+selected_models: [family_a_small, family_a_large, family_b_small, family_b_large]
+
+source:
+  boundary_run_id: safeprefix_boundary_model_v1_20260728_r2
+  boundary_root: /boundary/safeprefix_boundary_model_v1_20260728_r2/artifacts/boundary_model_v1
+  boundary_config: configs/boundary_model_v1.yaml
+  completion_run_id: safeprefix_teacher_forced_completion_20260727_r5
+  completion_root: /completion/safeprefix_teacher_forced_completion_20260727_r5/artifacts/teacher_forced_completion
+
+protocol:
+  processbench_only: true
+  crv_forbidden: true
+  annotation_index_base: zero
+  root_is_fallback_only: true
+  final_answer_states_forbidden: true
+  hidden_representation: final_transformer_layer_checkpoint_final_token_v1
+  allow_new_teacher_forcing: true
+  allow_native_application: false
+  allow_new_suffix_rollouts_after_selection_freeze: false
+  allow_new_recoverability_supervision: false
+  allow_recoverability_probe_modification: false
+  allow_recoverability_cutoff_modification: false
+  allow_native_outcomes_before_selection_freeze: false
+  allow_manuscript_edits: false
+
+training:
+  architectures: [linear_probe, position_only]
+  learning_rates: [0.001, 0.0003]
+  optimization_seeds: [0, 1, 2]
+  max_epochs: 50
+  patience: 7
+  batch_size_traces: 64
+  weight_decay: 0.0001
+  gradient_clip_norm: 1.0
+  hidden_width: 128
+  dropout: 0.1
+  class_balanced_loss: false
+  trace_weighting: mean_checkpoint_bce_within_trace_then_mean_traces
+  architecture_selection_split: architecture_dev
+  median_development_seed: true
+
+calibration:
+  fit_split: calibration
+  folds: 5
+  fold_seed: 20260729
+  positive_slope: true
+  max_iterations: 500
+  maximum_late_boundary_rate: 0.05
+  cutoff_grid: all_unique_oof_monotonic_probabilities
+
+statistics:
+  bootstrap_unit: complete_failed_trace
+  bootstrap_replicates: 10000
+  bootstrap_seed: 20260729
+  confidence_level: 0.95
+  equal_model_macro: true
+
+execution:
+  # The staged r5 publication includes safety manifests but not the promised
+  # full-step tensor shards.  Freeze a uniform fresh pass over all 979
+  # ProcessBench traces/model instead of claiming unavailable cache reuse.
+  reuse_completed_safety_features: false
+  teacher_force_traces_per_pack: 128
+  teacher_force_chunk_size: 256
+  gpu: H100
+  max_workers_per_model: 2
+  exact_once: true
+  resume_by_valid_pack: true

@@ -1,0 +1,73 @@
+include: [full_teacher_forced_suite.yaml]
+
+experiment:
+  id: safeprefix_teacher_forced_completion_v1
+artifacts_root: artifacts/teacher_forced_completion
+
+# Meta's native chat template defaults to the wall-clock date. The completed
+# 942-trace corpus rendered this template date, so pin it to preserve identical
+# prompt text and token IDs across the extension and safety extraction.
+models:
+  family_b_small:
+    chat_template_kwargs: {date_string: "26 Jul 2026"}
+  family_b_large:
+    chat_template_kwargs: {date_string: "26 Jul 2024"}
+
+teacher_forced_completion:
+  rollout_extension_only: true
+  safety_forward_only: true
+  reconciliation_lineage: artifacts/count_reconciliation/trace_filter_lineage.parquet
+  membership_manifest_root: artifacts/teacher_forced_completion_protocol
+  extension_examples_file: artifacts/teacher_forced_completion_protocol/extension_examples.parquet
+  completed_rollout_root: /runs/safeprefix_full_teacher_forced_20260726_r3/artifacts/full_teacher_forced_suite
+  completed_configuration_hash: 23c239549c60c8cfd6513140c704c66a738881bebe2e7db0ba2916eefeb5e43e
+  completed_run_id: safeprefix_full_teacher_forced_20260726_r3
+  safety_traces_per_pack: 24
+  # Measured prior GPU-work ratio was approximately 1:1:2:4. Run all four
+  # model queues concurrently so the slow Llama models determine neither a
+  # long serial tail nor idle Qwen capacity. Forty replicas are the measured
+  # cost/runtime elbow: model-load overhead remains small relative to the
+  # remaining 45.97 H100-hours while the immutable scientific packs, seeds,
+  # prompts, and record identities remain unchanged.
+  total_gpu_workers: 40
+  gpu_workers_by_model:
+    family_a_small: 5
+    family_a_large: 5
+    family_b_small: 10
+    family_b_large: 20
+  expected:
+    eligible_failed_traces: 2614
+    eligible_checkpoints_per_model: 10988
+    reused_failed_traces: 942
+    reused_checkpoints_per_model: 3895
+    extension_failed_traces: 1672
+    extension_checkpoints_per_model: 7093
+    extension_rollouts_per_model: 28372
+    extension_rollouts_total: 113488
+    mixed_train_traces: 5100
+    mixed_dev_traces: 800
+
+# The enriched source is used only through a source-trace-ID predicate produced
+# by the reconciliation artifact. Protected prompt/native/final groups are not
+# returned or opened as experiment examples.
+frozen_teacher_forced_manifests:
+  root: /source_runs/safeprefix_configuration_20260725_r9/artifacts/configuration_pilot/immutable_manifests
+
+disabled_stages:
+  boundary_model_training: true
+  safety_head_training: true
+  repairability_head_training: true
+  binary_first_unsafe_label_derivation: true
+  operational_boundary_selection: true
+  threshold_tuning: true
+  boundary_localization_evaluation: true
+  native_repair_evaluation: true
+  native_final_test_access: true
+
+phase_gates:
+  teacher_forced_extraction: unlocked
+  teacher_forced_raw_rollout_generation: unlocked
+  repairability_label_processing: locked
+  teacher_forced_boundary_training: locked
+  native_free_form_evaluation: locked
+  native_final_test: locked

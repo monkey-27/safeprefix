@@ -1,0 +1,299 @@
+include: [models.yaml, datasets.yaml]
+
+experiment:
+  id: safeprefix_full_teacher_forced_rollouts_v2
+artifacts_root: artifacts/full_teacher_forced_suite
+seed: 2701
+selected_models: [family_a_small, family_a_large, family_b_small, family_b_large]
+
+# Consume only the teacher-forced roles frozen by the configuration pilot.
+# Their exact references were joined before that partition was frozen. Native,
+# prompt-pilot, and final-test roles are not opened by this rollout-only run.
+frozen_teacher_forced_manifests:
+  root: /source_runs/safeprefix_configuration_20260725_r9/artifacts/configuration_pilot/immutable_manifests
+  source_configuration_hash: d205b4ddf267dad17d18c81c61e7ef9419ad689d72d28f742b771756d9a70423
+  summary_file: summary.json
+  train_file: teacher_forced_train.jsonl
+  dev_file: teacher_forced_dev.jsonl
+  expected_counts:
+    teacher_forced_train: 5100
+    teacher_forced_dev: 800
+  manifest_hashes:
+    teacher_forced_train: af397d1aff3707174cc3c77e5497cf880bfb452f6cb804546dc8e0ab589cdb4f
+    teacher_forced_dev: 5e547e20415c2e38f253b0ae3b0e41d2fb419a35008b051d6c7c492dac381ff2
+  permitted_reads: [summary, teacher_forced_train, teacher_forced_dev]
+  native_and_final_roles_forbidden: true
+
+# Use each pinned checkpoint's native, non-RoPE-scaled context allowance.  This
+# is necessary to retain the longest eligible traces while still honoring the
+# frozen 4,096-token continuation cap.
+models:
+  family_a_small: {max_context_length: 32768, selected_hidden_state_layers: [18, 27, -1]}
+  family_a_large: {max_context_length: 32768, selected_hidden_state_layers: [14, 21, -1]}
+  family_b_small: {max_context_length: 131072, selected_hidden_state_layers: [14, 21, -1]}
+  family_b_large: {max_context_length: 131072, selected_hidden_state_layers: [16, 24, -1]}
+
+# This configuration authorizes raw teacher-forced rollout generation only.
+# It deliberately contains no enabled boundary-model, label-discretization, or
+# native-evaluation stage.
+full_teacher_forced_suite:
+  schema_version: 2
+  rollout_only: true
+  teacher_forced_only: true
+  use_all_eligible_failed_traces: true
+  source_buckets:
+    - crv_arithmetic
+    - processbench_math
+    - processbench_olympiadbench
+    - processbench_omnimath
+  split_fractions: {train: 0.85, dev: 0.15}
+  split_unit: underlying_problem
+  stratify_by: [source_bucket, first_visible_error_position]
+  first_error_bins: [0, 1, 3, 6]
+  checkpoints: root_and_all_dataset_steps_strictly_before_first_visible_error
+  source_step_token_boundary_policy: snap_after_complete_source_step_v1
+  answer_region_checkpoint_audit_policy: source_terminal_or_self_delimiting_high_confidence_v1
+  checkpoint_subsampling: forbidden
+  maximum_checkpoints_per_trace: null
+  rollouts_per_checkpoint: 4
+  expected_gpu_pool: 8
+  event_history_retained: true
+  aggregate_raw_bernoulli_outcomes: true
+  discretize_repairability: false
+
+production_execution:
+  dtype: bf16
+  attention_backend: sdpa
+  require_resolved_attention_backend: sdpa
+  cache_protocol: complete_cache_saved_next_logits_no_replay
+  generation_engine: heterogeneous_checkpoint_compaction_refill_v1
+  microbatch_policy: heterogeneous_dynamic_compaction_refill
+  deterministic_branch_rng: true
+  branch_rng_derivation: stable_seed_2701_trace_checkpoint_rollout_index_v1
+  shared_generation_backend_for_all_methods: true
+  cross_checkpoint_batching: true
+  compact_finished_branches: true
+  refill_after_compaction: true
+  torch_compile: false
+  preallocate_kv_cache: true
+  prefill_chunk_size: 256
+  literal_hardware:
+    modal_selector: "H100!"
+    required_device_name_substring: H100
+    reject_automatic_h200_upgrade: true
+    gpu_count: 8
+
+  # These are initial, conservative launch values, not post-hoc scientific
+  # choices. The production-shaped benchmark may tune only these performance
+  # fields. Their resolved values are then frozen into the immutable execution
+  # manifest before any production record is generated.
+  benchmark_tunable:
+    permitted_fields: [branch_batch_size, compaction_quantum]
+    freeze_before_production: true
+    branch_batch_sizes:
+      family_a_small: 64
+      family_a_large: 32
+      family_b_small: 24
+      family_b_large: 16
+    compaction_quantum:
+      family_a_small: 64
+      family_a_large: 64
+      family_b_small: 64
+      family_b_large: 64
+    # The real-model benchmark evaluates these explicit candidates on the same
+    # frozen 12-trace pack and freezes the fastest candidate that passes every
+    # memory, utilization, forwarded-work, and projected-runtime gate.  Batch
+    # shape may change before production is frozen; prompts, branch seeds,
+    # sampling, checkpoints, and logical records do not.
+    candidate_settings:
+      family_a_small:
+        - {branch_batch_size: 64, compaction_quantum: 64}
+        - {branch_batch_size: 96, compaction_quantum: 64}
+        - {branch_batch_size: 96, compaction_quantum: 128}
+        - {branch_batch_size: 96, compaction_quantum: 256}
+      family_a_large:
+        - {branch_batch_size: 32, compaction_quantum: 64}
+        - {branch_batch_size: 48, compaction_quantum: 64}
+        - {branch_batch_size: 48, compaction_quantum: 128}
+        - {branch_batch_size: 48, compaction_quantum: 256}
+      family_b_small:
+        - {branch_batch_size: 24, compaction_quantum: 64}
+        - {branch_batch_size: 36, compaction_quantum: 64}
+        - {branch_batch_size: 36, compaction_quantum: 128}
+        - {branch_batch_size: 36, compaction_quantum: 256}
+      family_b_large:
+        - {branch_batch_size: 16, compaction_quantum: 64}
+        - {branch_batch_size: 24, compaction_quantum: 64}
+        - {branch_batch_size: 24, compaction_quantum: 128}
+        - {branch_batch_size: 24, compaction_quantum: 256}
+    traces_per_decode_group:
+      family_a_small: 12
+      family_a_large: 12
+      family_b_small: 12
+      family_b_large: 12
+    # A deterministic one-cache capacity. The engine admits rows only when the
+    # worst-case prefix+4096 cache remains below this bound; the values reserve
+    # room for checkpoint views, collated copies, model weights, and activations.
+    maximum_decode_kv_bytes:
+      family_a_small: 15032385536
+      family_a_large: 13958643712
+      family_b_small: 12884901888
+      family_b_large: 12884901888
+
+execution_packs:
+  schema_version: 1
+  unit: immutable_trace_execution_pack
+  membership: frozen_before_production
+  checkpoint_bundle: all_four_rollouts_for_checkpoint
+  traces_per_pack: 12
+  logical_key_fields: [model_key, trace_id, checkpoint_index, rollout_index]
+  deterministic_order: true
+  configuration_hash_required: true
+  code_revision_required: true
+  atomic_completion_marker: true
+  exact_once_logical_records: true
+  skip_only_valid_complete_packs: true
+  retry_unit: whole_execution_pack
+  allow_partial_pack_reuse: false
+  duplicate_policy: fail
+  missing_record_policy: fail
+
+scheduler:
+  policy: modal_model_major_dynamic_immutable_pack_dispatch
+  workers_per_model_wave: 8
+  total_h100_workers: 8
+  assignment_unit: immutable_execution_pack
+  workload_weight: estimated_checkpoint_branch_work
+  frozen_pack_priority: longest_estimated_work_first
+  idle_worker_claims_next_pending_pack: true
+  split_or_merge_claimed_packs: false
+  advance_on_model_completion: true
+  preserve_pack_membership_on_retry: true
+  preserve_pack_worker_assignment_on_retry: false
+
+pre_submit_validation:
+  cpu:
+    enabled: true
+    load_models: false
+    checks:
+      - dataset_loading
+      - eligibility_filtering
+      - problem_level_split
+      - checkpoint_enumeration
+      - pre_error_checkpoint_rule
+      - four_seed_expansion
+      - execution_pack_determinism
+      - artifact_schema
+      - aggregation
+      - duplicate_detection
+      - pack_level_resume
+      - parser_verifier_versions
+  real_model_smoke:
+    enabled: true
+    traces_per_model: 4
+    use_all_eligible_checkpoints_for_selected_traces: true
+    rollouts_per_checkpoint: 4
+    max_new_tokens: 256
+    temporary_branch_batch_size: 4
+    temporary_compaction_quantum: 8
+    temporary_traces_per_decode_group: 2
+    require_heterogeneous_checkpoint_batch: true
+    require_compaction_refill: true
+    require_interruption_resume: true
+    require_boundary_input_construction: false
+  production_benchmark:
+    enabled: true
+    # Match the complete production pack/decode group so the benchmark tests
+    # real source-cache occupancy and can actually fill the requested branch
+    # batch. A four-trace benchmark materially understated both memory and work.
+    traces_per_model: 12
+    source_stratified: true
+    use_all_eligible_checkpoints_for_selected_traces: true
+    rollouts_per_checkpoint: 4
+    max_new_tokens: 4096
+    require_source_coverage: 4
+    require_heterogeneous_checkpoint_batch: true
+    minimum_gpu_memory_headroom_fraction: 0.05
+    minimum_gpu_utilization_samples: 1
+    minimum_mean_gpu_utilization_percent: 20.0
+    maximum_forwarded_to_useful_ratio: 1.35
+    maximum_projected_total_wall_hours: 12.0
+    selection_objective: maximum_useful_output_tokens_per_second
+    measure:
+      - useful_output_tokens_per_second
+      - forwarded_row_steps
+      - padding_and_finished_row_waste
+      - gpu_utilization
+      - peak_allocated_memory
+      - peak_reserved_memory
+      - truncation_rate
+      - artifact_write_throughput
+      - projected_full_wall_time
+
+prompting:
+  selected_condition: P0
+segmenter:
+  name: source_steps
+teacher_forced:
+  maximum_candidates_per_trace: null
+  candidate_rule: root_and_all_dataset_defined_pre_error_checkpoints
+
+# Frozen from the completed k=4/6/8 pilot. There are four deterministic seeds
+# per logical checkpoint, derived rather than reused globally so every branch
+# has an independent, stable stream.
+rollout:
+  temperature: 0.7
+  top_p: 0.95
+  top_k: 0
+  max_new_tokens: 4096
+  stop_token_ids: []
+  stop_policy: eos_or_configured_stop_token_or_token_cap
+  verifier: exact_answer
+  base_seed: 2701
+  rollout_indices: [0, 1, 2, 3]
+  seed_derivation: stable_seed(base_seed,trace_id,checkpoint_index,rollout_index)
+  retain_truncated_rollouts: true
+  retain_no_answer_rollouts: true
+  truncated_or_no_answer_success: false
+rollout_allocation:
+  initial_rollouts_per_checkpoint: 4
+  dev_rollouts_per_checkpoint: 4
+  dense_total_rollouts_per_checkpoint: 0
+  nested_k: [4]
+
+parser_verifier:
+  parser: frozen_deterministic_answer_parser
+  verifier: frozen_exact_terminal_verifier
+  require_uniform_version_hashes: true
+
+disabled_stages:
+  boundary_model_training: true
+  safety_head_training: true
+  repairability_head_training: true
+  binary_first_unsafe_label_derivation: true
+  operational_boundary_selection: true
+  threshold_tuning: true
+  boundary_localization_evaluation: true
+  native_repair_evaluation: true
+  native_final_test_access: true
+
+phase_gates:
+  teacher_forced_extraction: unlocked
+  teacher_forced_raw_rollout_generation: unlocked
+  repairability_label_processing: locked
+  teacher_forced_boundary_training: locked
+  native_free_form_evaluation: locked
+  native_final_test: locked
+
+final_test_guard:
+  allow_prompt_loading: false
+  allow_generation: false
+  allow_verifier_outputs: false
+  forbidden_artifact_terms: [native_eval, final_test_generation, final_test_prediction, final_test_output]
+
+# The audit configuration requires a complete problem-level partition. The
+# immutable production manifest freezes the source/error-stratified assignment
+# before any rollout record is generated.
+split_fractions: {train: 0.85, dev: 0.15}
+fuzzy_similarity_threshold: 0.92
+evaluation_pool_manifests: []

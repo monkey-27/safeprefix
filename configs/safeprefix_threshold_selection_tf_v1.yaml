@@ -1,0 +1,138 @@
+include: [models.yaml]
+
+artifacts_root: artifacts/safeprefix_threshold_selection_tf_v1
+seed: 20260728
+
+experiment:
+  id: safeprefix_threshold_selection_tf_v1
+  schema_version: 1
+  seed: 20260728
+  training_seeds: [0, 1, 2]
+  selected_architecture: linear_probe
+  selected_learning_rate: 0.001
+  native_evaluation_forbidden: true
+  teacher_forced_test_forbidden: true
+  geometry_test_forbidden: true
+
+selected_models: [family_a_small, family_a_large, family_b_small, family_b_large]
+
+# Preserve the context lengths and pinned Llama chat-template dates used by the
+# completed teacher-forced corpus and native production-shaped generation.
+models:
+  family_a_small: {max_context_length: 32768}
+  family_a_large: {max_context_length: 32768}
+  family_b_small:
+    max_context_length: 131072
+    chat_template_kwargs: {date_string: "26 Jul 2026"}
+  family_b_large:
+    max_context_length: 131072
+    chat_template_kwargs: {date_string: "26 Jul 2024"}
+
+source:
+  boundary_root: /boundary_source/safeprefix_boundary_model_v1_20260728_r2/artifacts/boundary_model_v1
+  completion_root: /completion/safeprefix_teacher_forced_completion_20260727_r5/artifacts/teacher_forced_completion
+  old_rollout_root: /completion/safeprefix_full_teacher_forced_20260726_r3/artifacts/full_teacher_forced_suite
+  expected_manifest_hashes:
+    canonical_checkpoint_manifest_sha256: 131339e90b43925f7294fe4577e658ef30ca028b1b622b6ecbf3282a211e1941
+    calibration_split_sha256: 7093ecf0f305dc30be04fc5b974b6dd42c0b250130efd9cc6973cfd293ef9111
+    common_trace_manifest_sha256: 29639054e6a09b3aa5edc98eb707e85ad7d9e5ccb11064c450f319829e3882b7
+    boundary_config_sha256: 1728a77ef9104437deaed597dd4929db1eaa4a49fc8d2ea36c7bdc30de4b7de2
+    exclusion_manifest_sha256: b268546f7e8461c7f60be0f67e3559079db60af5af549d9ef7771352b7581534
+  expected_operational_seeds:
+    family_a_small: 0
+    family_a_large: 0
+    family_b_small: 1
+    family_b_large: 1
+  expected_operational_weight_sha256:
+    family_a_small: 47f43c15652758331a0ae902134f97ccd606533473550cc98cc42cec46e7161b
+    family_a_large: 269e1a3ba17d80f87c25a146049e11e330c0e20b387d1a786eed8ade70dd687c
+    family_b_small: ccc913098857cd8c68e72e15c6613f3995c6c777d3870b8167ebe602994c9114
+    family_b_large: 8078ee2441d5e204a8b9bff21cab8d5857ea4a587ec39329615f96162cfc0584
+  expected:
+    shared_traces: 119
+    traces_per_model: 119
+    checkpoints_per_model: 483
+    checkpoints_total: 1932
+    original_rollouts_per_checkpoint: 4
+    added_rollouts_per_checkpoint: 12
+    dense_rollouts_per_checkpoint: 16
+    added_checkpoint_rollouts_total: 23184
+    full_regenerations_total: 7616
+
+cross_fit:
+  folds: 5
+  assignment_seed: 20260728
+  unit: problem_group
+  stratify_by: domain
+  calibrator: positive_affine_logistic
+  max_iterations: 500
+  # Dense K=16 outcomes from the four training folds fit each calibrator.  The
+  # held-out fold's K=16 outcomes remain evaluation-only for that fold.
+  fit_target: dense_k16_training_folds_only
+
+generation:
+  temperature: 0.7
+  top_p: 0.95
+  top_k: 0
+  max_new_tokens: 4096
+  stop_token_ids: []
+  stop_policy: eos_or_configured_stop_token_or_token_cap
+  verifier: exact_answer
+  dtype: bf16
+  attention_backend: sdpa
+  cache_protocol: complete_cache_saved_next_logits_no_replay
+  preallocate_kv_cache: true
+  checkpoint_rollout_indices: [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+  full_regeneration_indices: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+
+execution:
+  traces_per_pack: 2
+  prefill_chunk_size: 256
+  compaction_quantum: 64
+  branch_batch_sizes:
+    family_a_small: 64
+    family_a_large: 32
+    family_b_small: 24
+    family_b_large: 16
+  maximum_decode_kv_bytes:
+    family_a_small: 15032385536
+    family_a_large: 13958643712
+    family_b_small: 12884901888
+    family_b_large: 12884901888
+  gpu_workers_by_model:
+    family_a_small: 3
+    family_a_large: 3
+    family_b_small: 5
+    family_b_large: 9
+  total_gpu_workers: 20
+  exact_once: true
+  atomic_pack_commit: true
+
+smoke:
+  traces_per_model: 2
+  added_checkpoint_rollouts: 2
+  full_regenerations: 2
+  cross_fit_folds: 1
+  scientific_data: false
+
+threshold_selection:
+  thresholds: [0.00, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.50, 0.55, 0.60, 0.65, 0.70, 0.75, 0.80, 0.85, 0.90, 0.95]
+  full_regeneration_anchor: 1.00
+  noninferiority_margin: 0.03
+  per_model_maximum_deficit: 0.05
+  minimum_checkpoint_coverage: 0.20
+  bootstrap_replicates: 10000
+  bootstrap_confidence_level: 0.95
+  bootstrap_seed: 20260728
+  cost_tie_fraction: 0.01
+  primary_success_weighting: equal_model
+  primary_cost: fresh_tokens
+
+baselines:
+  - full_regeneration
+  - always_latest
+  - always_earliest
+  - fixed_rewind_25
+  - fixed_rewind_50
+  - fixed_rewind_75
+  - position_only

@@ -1,0 +1,49 @@
+include: [models.yaml]
+
+experiment:
+  id: safeprefix_native_hidden_state_cache_v1
+  status: production_data_compilation
+seed: 2701
+artifacts_root: artifacts/native_hidden_state_cache_v1
+selected_models: [family_a_small, family_a_large, family_b_small, family_b_large]
+
+source:
+  acquisition_run_id: safeprefix_native_failed_trace_v1_20260728_r2
+  acquisition_artifact_root: artifacts/native_failed_trace_acquisition
+  cohort_path_template: cohorts/{model_key}.jsonl
+  immutable_marker_template: cohorts/{model_key}.immutable.json
+  require_initial_status: valid_incorrect
+  require_parser_status: parsed
+  require_verifier_status: completed
+  require_nontruncated: true
+
+representation:
+  schema_version: 1
+  extraction_method: posthoc_teacher_force_exact_saved_native_tokens
+  selected_layers: [-1]
+  storage_dtype: float16
+  token_scope: prompt_final_plus_every_completion_token
+  include_completion_token_log_probabilities: true
+  teacher_force_chunk_size: 256
+  pack_size: 12
+  persist_full_token_hidden_states: true
+  persist_kv_cache: false
+  semantic_segmentation_enabled: false
+  boundary_model_enabled: false
+  repair_generation_enabled: false
+
+execution:
+  dtype: bf16
+  attention_backend: sdpa
+  torch_compile: false
+  gpu_type: H100
+  max_containers_per_workspace: 10
+  retries: 2
+  timeout_hours: 8
+
+integrity:
+  require_exact_cohort_membership: true
+  require_finite_hidden_states: true
+  require_exact_token_hashes: true
+  require_no_duplicate_trace_ids: true
+  require_all_packs_complete: true
